@@ -15,18 +15,21 @@ const int echoPin = 31; // the SRF05's echo pin
 const int initPin = 33; // the SRF05's init pin
 int pulseTime = 0; // variable for reading the pulse
 
-const int pinLedBoot = 13;
+
+unsigned int minValue = 99999;
+unsigned int maxValue = 0;
+int pinLedBoot = 13;
+long timer;
 
 
 int freq = 262;
+int lastFreq = 262;
 
 int idx = 0;
 int seuil[23]     = {269, 285, 302, 320, 339, 359, 381, 404, 428, 453, 480, 509, 539, 571, 605, 641, 679, 719, 762, 807, 855, 906, 960};
 int seuillage[24] = {262, 277, 294, 311, 330, 349, 370, 392, 415, 440, 466, 494, 523, 554, 587, 622, 659, 698, 740, 784, 831, 880, 932, 988};
 
-int last5[5] = [262,262,262,262,262]; 
-int med[5]   = [262,262,262,262,262];
-  
+
 static const byte sine_tab[256] =
 {
         128, 131, 134, 137, 140, 143, 146, 149,
@@ -64,66 +67,98 @@ static const byte sine_tab[256] =
 };
 
 void setup() {
-  startMozzi(CONTROL_RATE);
-  sineOsc.setFreq(freq);
+  //sineOsc.setFreq(freq);
 
   
+  Serial.begin(9600);
+ 
   pinMode(pinLedBoot, OUTPUT);
   // make the echo pin an input:
   pinMode(initPin, OUTPUT);
   pinMode(echoPin, INPUT);
-  digitalWrite(pinLedBoot, 1);
+/*  digitalWrite(pinLedBoot, 1);
 
+  timer = millis();
+Serial.println("Initialisation begin");
+  while(millis() - timer < 5000){
+    digitalWrite(initPin, LOW);
+    delayMicroseconds(25000);
+    digitalWrite(initPin, HIGH); // send signal
+    delayMicroseconds(20); // wait 20 milliseconds for it to return
+    digitalWrite(initPin, LOW); // close signal
+    pulseTime = pulseIn(echoPin, HIGH); // calculate time for signal to return
+    
+    if(pulseTime < minValue && pulseTime > 0){
+      minValue = pulseTime;
+    }
+     if(pulseTime > maxValue && pulseTime > 0){
+      maxValue = pulseTime;
+    }    
+    
+  Serial.println(millis() - timer);
+  }
+  digitalWrite(pinLedBoot, 0);
+*/  
+  minValue = 200;
+  maxValue = 4000;
+  Serial.println("Initialisation terminée");
+  Serial.print("minValue : "); Serial.println(minValue);
+  Serial.print("maxValue : "); Serial.println(maxValue);
+  startMozzi(CONTROL_RATE);
+  
 }
 
 void updateControl() {
   // your control code
+  
   digitalWrite(initPin, LOW);
   delayMicroseconds(2500);
   digitalWrite(initPin, HIGH); // send signal
   delayMicroseconds(20); // wait 50 milliseconds for it to return
   digitalWrite(initPin, LOW); // close signal
-  
+
   //100micro à 25milli
   pulseTime = pulseIn(echoPin, HIGH); // calculate time for signal to return
-
-  freq = map(pulseTime, 100, 25000, 261, 988);
+  
+  freq = map(pulseTime, minValue, maxValue, 261, 494);
+  
 }
 
 int updateAudio() {
   // your audio code which returns an int between -244 and 243
   // actually, a char is fine
-
-  /*freq=(freq+1)%1000;
+  /*
+  freq=440;
+  sineOsc.setFreq(freq*32);
+  return sineOsc.next();
+*/
+/*
+  freq=(freq+1)%1000;
   if(freq>seuil[idx])
   {
     idx=(idx+1)%23;
     sineOsc.setFreq(seuillage[idx]);
   }
-  */
+  return sineOsc.next()*1;
+*/  
 
-  for (int i = 0; i < 23; i++){
-    if(freq < seuil[i]){
-      freq = seuillage[i];
-      break;
-    }    
-  }
-  if(freq > seuil[22]){
-      freq = seuillage[23];
-  }
+/*    for (int i = 0; i < 23; i++){
+      if(freq < seuil[i]){
+        freq = seuillage[i];
+        break;
+      }    
+    }
+    if(freq > seuil[22]){
+        freq = seuillage[23];
+    }
+*/
+    
+    sineOsc.setFreq(freq);
 
-  int tmp = last5[0];
-  last5[0]=freq;
-  last5[4]=last5[3];
-  last5[3]=last5[2];
-  last5[2]=last5[1];
-  last5[1]=tmp;
-
-  // trier et renvoyer medianne.
-
-  sineOsc.setFreq(freq);
+    //Serial.println(med[2]);
+    
+    return sineOsc.next();
   
-  return sineOsc.next();
 }
 
 void loop() {
