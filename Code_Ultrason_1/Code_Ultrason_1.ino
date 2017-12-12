@@ -2,162 +2,155 @@
 #include <MozziGuts.h>
 #include <Oscil.h>
 #include <tables/sin2048_int8.h>
+#include <tables/saw2048_int8.h>
+#include <tables/triangle_valve_2048_int8.h>
 #include <math.h>
 
-Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> sineOsc(SIN2048_DATA);
+Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> sineOsc1(SIN2048_DATA);
+Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> sineOsc2(SIN2048_DATA);
+Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> sineOsc3(SIN2048_DATA);
+Oscil <SAW2048_NUM_CELLS, AUDIO_RATE> sawOsc(SAW2048_DATA);
+Oscil <TRIANGLE_VALVE_2048_NUM_CELLS, AUDIO_RATE> triOsc(TRIANGLE_VALVE_2048_DATA);
+
 // at the top of your sketch
 #define CONTROL_RATE 64   // or some other power of 2
-
-int sound = 0;
 
 //Capteur ultrason
 const int echoPin = 31; // the SRF05's echo pin
 const int initPin = 33; // the SRF05's init pin
-int pulseTime = 0; // variable for reading the pulse
 
+const int echoPinVolume = 35; // the SRF05's echo pin
+const int initPinVolume = 37; // the SRF05's init pin
+
+int pulseTimeFreq = 0; // variable for reading the pulse
+int pulseTimeVolume = 0; // variable for reading the pulse for volume
+
+int lastPulseTimeFreq = 0;
+int gamme = 4;
+int multip = 2;
+
+int mode = 3;
 
 unsigned int minValue = 99999;
 unsigned int maxValue = 0;
+int count = 0;
 int pinLedBoot = 13;
 long timer;
 
-
-int freq = 262;
+int freq = 440;
+int volume = 0;
 int lastFreq = 262;
 
 int idx = 0;
-int seuil[23]     = {269, 285, 302, 320, 339, 359, 381, 404, 428, 453, 480, 509, 539, 571, 605, 641, 679, 719, 762, 807, 855, 906, 960};
-int seuillage[24] = {262, 277, 294, 311, 330, 349, 370, 392, 415, 440, 466, 494, 523, 554, 587, 622, 659, 698, 740, 784, 831, 880, 932, 988};
-
-
-static const byte sine_tab[256] =
-{
-        128, 131, 134, 137, 140, 143, 146, 149,
-        152, 156, 159, 162, 165, 168, 171, 174,
-        176, 179, 182, 185, 188, 191, 193, 196,
-        199, 201, 204, 206, 209, 211, 213, 216,
-        218, 220, 222, 224, 226, 228, 230, 232,
-        234, 236, 237, 239, 240, 242, 243, 245,
-        246, 247, 248, 249, 250, 251, 252, 252,
-        253, 254, 254, 255, 255, 255, 255, 255,
-        255, 255, 255, 255, 255, 255, 254, 254,
-        253, 252, 252, 251, 250, 249, 248, 247,
-        246, 245, 243, 242, 240, 239, 237, 236,
-        234, 232, 230, 228, 226, 224, 222, 220,
-        218, 216, 213, 211, 209, 206, 204, 201,
-        199, 196, 193, 191, 188, 185, 182, 179,
-        176, 174, 171, 168, 165, 162, 159, 156,
-        152, 149, 146, 143, 140, 137, 134, 131,
-        128, 124, 121, 118, 115, 112, 109, 106,
-        103,  99,  96,  93,  90,  87,  84,  81,
-         79,  76,  73,  70,  67,  64,  62,  59,
-         56,  54,  51,  49,  46,  44,  42,  39,
-         37,  35,  33,  31,  29,  27,  25,  23,
-         21,  19,  18,  16,  15,  13,  12,  10,
-          9,   8,   7,   6,   5,   4,   3,   3,
-          2,   1,   1,   0,   0,   0,   0,   0,
-          0,   0,   0,   0,   0,   0,   1,   1,
-          2,   3,   3,   4,   5,   6,   7,   8,
-          9,  10,  12,  13,  15,  16,  18,  19,
-         21,  23,  25,  27,  29,  31,  33,  35,
-         37,  39,  42,  44,  46,  49,  51,  54,
-         56,  59,  62,  64,  67,  70,  73,  76,
-         79,  81,  84,  87,  90,  93,  96,  99,
-        103, 106, 109, 112, 115, 118, 121, 124
-};
+//int seuil[23]     = {269, 285, 302, 320, 339, 359, 381, 404, 428, 453, 480, 509, 539, 571, 605, 641, 679, 719, 762, 807, 855, 906, 960};
+//int seuillage[24] = {262, 277, 294, 311, 330, 349, 370, 392, 415, 440, 466, 494, 523, 554, 587, 622, 659, 698, 740, 784, 831, 880, 932, 988};
 
 void setup() {
-  //sineOsc.setFreq(freq);
-
-  
   Serial.begin(9600);
  
   pinMode(pinLedBoot, OUTPUT);
   // make the echo pin an input:
   pinMode(initPin, OUTPUT);
   pinMode(echoPin, INPUT);
-/*  digitalWrite(pinLedBoot, 1);
 
-  timer = millis();
-Serial.println("Initialisation begin");
-  while(millis() - timer < 5000){
-    digitalWrite(initPin, LOW);
-    delayMicroseconds(25000);
-    digitalWrite(initPin, HIGH); // send signal
-    delayMicroseconds(20); // wait 20 milliseconds for it to return
-    digitalWrite(initPin, LOW); // close signal
-    pulseTime = pulseIn(echoPin, HIGH); // calculate time for signal to return
-    
-    if(pulseTime < minValue && pulseTime > 0){
-      minValue = pulseTime;
-    }
-     if(pulseTime > maxValue && pulseTime > 0){
-      maxValue = pulseTime;
-    }    
-    
-  Serial.println(millis() - timer);
-  }
-  digitalWrite(pinLedBoot, 0);
-*/  
-  minValue = 200;
-  maxValue = 4000;
-  Serial.println("Initialisation terminée");
-  Serial.print("minValue : "); Serial.println(minValue);
-  Serial.print("maxValue : "); Serial.println(maxValue);
+  pinMode(initPinVolume, OUTPUT);
+  pinMode(echoPinVolume, INPUT);
+
+  minValue = 100;
+  maxValue = 3000;
+  //Serial.println("Initialisation terminée");
+  //Serial.print("minValue : "); Serial.println(minValue);
+  //.print("maxValue : "); Serial.println(maxValue);
   startMozzi(CONTROL_RATE);
   
 }
 
 void updateControl() {
   // your control code
-  
-  digitalWrite(initPin, LOW);
-  delayMicroseconds(2500);
-  digitalWrite(initPin, HIGH); // send signal
-  delayMicroseconds(20); // wait 50 milliseconds for it to return
-  digitalWrite(initPin, LOW); // close signal
+  if(count != 0)
+  {
+      digitalWrite(initPin, LOW);
+      delayMicroseconds(15); //Wait to be sure the signals is interprated
+      digitalWrite(initPin, HIGH); // send signal
+      delayMicroseconds(15); // trigger pulse 
+      digitalWrite(initPin, LOW); // close signal
+      //100micro à 30milli
+      pulseTimeFreq = pulseIn(echoPin, HIGH); // calculate time for signal to return
+  }
+  else
+  {
+      digitalWrite(initPinVolume, LOW);
+      delayMicroseconds(15); //Wait to be sure the signals is interprated
+      digitalWrite(initPinVolume, HIGH); // send signal
+      delayMicroseconds(15); // trigger pulse 
+      digitalWrite(initPinVolume, LOW); // close signal
+      //100micro à 30milli
+      pulseTimeVolume = pulseIn(echoPinVolume, HIGH); // calculate time for signal to return
+  }
 
-  //100micro à 25milli
-  pulseTime = pulseIn(echoPin, HIGH); // calculate time for signal to return
+  if(pulseTimeVolume > maxValue)
+  {
+    pulseTimeVolume = 255;
+  }  
+  if(pulseTimeFreq > maxValue)
+  {
+    pulseTimeFreq = lastPulseTimeFreq;
+  }
+  if(pulseTimeFreq < minValue) pulseTimeFreq=minValue;
+  if(pulseTimeVolume < minValue) pulseTimeVolume=minValue;
+
+  lastPulseTimeFreq = pulseTimeFreq;
+
+  multip = 1;
+  for(int i=0; i<gamme; i++)
+  {
+    multip*=2 ;
+  }
   
-  freq = map(pulseTime, minValue, maxValue, 261, 494);
+  freq = map(pulseTimeFreq, minValue, maxValue, 65 * multip, 124 * multip);
+  volume = map(pulseTimeVolume, minValue, maxValue, 0, 255);
+  count++;
+  count = count % 10;
   
 }
 
 int updateAudio() {
-  // your audio code which returns an int between -244 and 243
-  // actually, a char is fine
-  /*
-  freq=440;
-  sineOsc.setFreq(freq*32);
-  return sineOsc.next();
-*/
-/*
-  freq=(freq+1)%1000;
-  if(freq>seuil[idx])
-  {
-    idx=(idx+1)%23;
-    sineOsc.setFreq(seuillage[idx]);
-  }
-  return sineOsc.next()*1;
-*/  
 
-/*    for (int i = 0; i < 23; i++){
-      if(freq < seuil[i]){
-        freq = seuillage[i];
+  int result;
+    switch (mode)
+    {
+      case 0 :
+        sineOsc1.setFreq(freq);
+        result = (int)sineOsc1.next();
         break;
-      }    
+      case 1 :
+        sineOsc1.setFreq(freq);
+        sineOsc2.setFreq(freq*4);
+        sineOsc3.setFreq(freq*16);
+        result = (int)sineOsc1.next() + (int)sineOsc2.next()/2 + (int)sineOsc3.next()/4;
+        break;
+      case 2:
+        sineOsc1.setFreq(freq);
+        sineOsc2.setFreq(freq*2);
+        sineOsc3.setFreq(freq*8);
+        result = (int)sineOsc1.next() + (int)sineOsc2.next()/2 + (int)sineOsc3.next()/4;
+        break;
+      case 3 :
+        sawOsc.setFreq(freq);
+        result = (int)sawOsc.next();
+        break;
+      case 4 :
+        triOsc.setFreq(freq);
+        result = (int)triOsc.next();
+        break;
+      default:
+        sineOsc1.setFreq(freq);
+        result = (int)sineOsc1.next();
+        break;
     }
-    if(freq > seuil[22]){
-        freq = seuillage[23];
-    }
-*/
     
-    sineOsc.setFreq(freq);
-
-    //Serial.println(med[2]);
     
-    return sineOsc.next();
+    return (result * volume) >> 8;
   
 }
 
