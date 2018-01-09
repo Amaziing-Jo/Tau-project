@@ -22,16 +22,20 @@ const int initPin = 33; // the SRF05's init pin
 const int echoPinVolume = 35; // the SRF05's echo pin
 const int initPinVolume = 37; // the SRF05's init pin
 
+const int switch1Pin = 22;
+const int switch2Pin = 23;
+
 int pulseTimeFreq = 0; // variable for reading the pulse
 int pulseTimeVolume = 0; // variable for reading the pulse for volume
 
 int lastPulseTimeFreq = 0;
 int gamme = 4;
+int numberOfGamme = 1;
 int multip = 2;
 
-int mode = 3;
+int mode = 0;
 
-unsigned int minValue = 99999;
+unsigned int minValue = 9999;
 unsigned int maxValue = 0;
 int count = 0;
 int pinLedBoot = 13;
@@ -42,11 +46,10 @@ int volume = 0;
 int lastFreq = 262;
 
 int idx = 0;
-//int seuil[23]     = {269, 285, 302, 320, 339, 359, 381, 404, 428, 453, 480, 509, 539, 571, 605, 641, 679, 719, 762, 807, 855, 906, 960};
-//int seuillage[24] = {262, 277, 294, 311, 330, 349, 370, 392, 415, 440, 466, 494, 523, 554, 587, 622, 659, 698, 740, 784, 831, 880, 932, 988};
+
 
 void setup() {
-  Serial.begin(9600);
+  //Serial.begin(9600);
  
   pinMode(pinLedBoot, OUTPUT);
   // make the echo pin an input:
@@ -56,17 +59,24 @@ void setup() {
   pinMode(initPinVolume, OUTPUT);
   pinMode(echoPinVolume, INPUT);
 
+  pinMode(switch1Pin, INPUT);
+  pinMode(switch2Pin, INPUT); 
+
   minValue = 100;
   maxValue = 3000;
-  //Serial.println("Initialisation terminée");
-  //Serial.print("minValue : "); Serial.println(minValue);
-  //.print("maxValue : "); Serial.println(maxValue);
+
   startMozzi(CONTROL_RATE);
   
 }
 
 void updateControl() {
   // your control code
+  numberOfGamme = digitalRead(switch1Pin) + 1; // +1
+  gamme = digitalRead(switch2Pin) + 3; //+ 3;
+
+  //Serial.print("numberOfGamme : "); Serial.println(numberOfGamme);
+  //Serial.print("gamme : "); Serial.println(gamme);
+  
   if(count != 0)
   {
       digitalWrite(initPin, LOW);
@@ -107,7 +117,7 @@ void updateControl() {
     multip*=2 ;
   }
   
-  freq = map(pulseTimeFreq, minValue, maxValue, 65 * multip, 124 * multip);
+  freq = map(pulseTimeFreq, minValue, maxValue, 65 * multip, 124 * multip * numberOfGamme);
   volume = map(pulseTimeVolume, minValue, maxValue, 0, 255);
   count++;
   count = count % 10;
