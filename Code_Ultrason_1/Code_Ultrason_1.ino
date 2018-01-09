@@ -15,12 +15,21 @@ Oscil <TRIANGLE_VALVE_2048_NUM_CELLS, AUDIO_RATE> triOsc(TRIANGLE_VALVE_2048_DAT
 // at the top of your sketch
 #define CONTROL_RATE 64   // or some other power of 2
 
+// haut-parleur pin 11
+
 //Capteur ultrason
 const int echoPin = 31; // the SRF05's echo pin
 const int initPin = 33; // the SRF05's init pin
 
 const int echoPinVolume = 35; // the SRF05's echo pin
 const int initPinVolume = 37; // the SRF05's init pin
+
+const int mode1Pin = 49;
+const int mode2Pin = 48;
+const int mode3Pin = 47;
+const int mode4Pin = 46;
+const int mode5Pin = 45;
+const int mode6Pin = 44;
 
 const int switch1Pin = 22;
 const int switch2Pin = 23;
@@ -31,7 +40,7 @@ int pulseTimeVolume = 0; // variable for reading the pulse for volume
 int lastPulseTimeFreq = 0;
 int gamme = 4;
 int numberOfGamme = 1;
-int multip = 2;
+unsigned int multip = 2;
 
 int mode = 0;
 
@@ -59,8 +68,15 @@ void setup() {
   pinMode(initPinVolume, OUTPUT);
   pinMode(echoPinVolume, INPUT);
 
-  pinMode(switch1Pin, INPUT);
-  pinMode(switch2Pin, INPUT); 
+  pinMode(switch1Pin, INPUT_PULLUP);
+  pinMode(switch2Pin, INPUT_PULLUP); 
+
+  pinMode(mode1Pin, INPUT_PULLUP);
+  pinMode(mode2Pin, INPUT_PULLUP);
+  pinMode(mode3Pin, INPUT_PULLUP);
+  pinMode(mode4Pin, INPUT_PULLUP);
+  pinMode(mode5Pin, INPUT_PULLUP);
+  pinMode(mode6Pin, INPUT_PULLUP);
 
   minValue = 100;
   maxValue = 3000;
@@ -71,8 +87,8 @@ void setup() {
 
 void updateControl() {
   // your control code
-  numberOfGamme = digitalRead(switch1Pin) + 1; // +1
-  gamme = digitalRead(switch2Pin) + 3; //+ 3;
+  numberOfGamme = digitalRead(switch1Pin) + 1;
+  gamme = digitalRead(switch2Pin) + 3;
 
   //Serial.print("numberOfGamme : "); Serial.println(numberOfGamme);
   //Serial.print("gamme : "); Serial.println(gamme);
@@ -114,7 +130,7 @@ void updateControl() {
   multip = 1;
   for(int i=0; i<gamme; i++)
   {
-    multip*=2 ;
+    multip=multip<<1 ;
   }
   
   freq = map(pulseTimeFreq, minValue, maxValue, 65 * multip, 124 * multip * numberOfGamme);
@@ -127,7 +143,15 @@ void updateControl() {
 int updateAudio() {
 
   int result;
-    switch (mode)
+  {
+    if(!digitalRead(mode1Pin)) mode = 0;
+    else if(!digitalRead(mode2Pin)) mode = 1;
+    else if(!digitalRead(mode3Pin)) mode = 2;
+    else if(!digitalRead(mode4Pin)) mode = 3;
+    else if(!digitalRead(mode5Pin)) mode = 4;
+    else mode = 5;
+  }
+  switch (mode)
     {
       case 0 :
         sineOsc1.setFreq(freq);
@@ -135,15 +159,15 @@ int updateAudio() {
         break;
       case 1 :
         sineOsc1.setFreq(freq);
-        sineOsc2.setFreq(freq*4);
-        sineOsc3.setFreq(freq*16);
-        result = (int)sineOsc1.next() + (int)sineOsc2.next()/2 + (int)sineOsc3.next()/4;
+        sineOsc2.setFreq(freq<<2);
+        sineOsc3.setFreq(freq<<4);
+        result = (int)sineOsc1.next() + (int)sineOsc2.next()>>1 + (int)sineOsc3.next()>>2;
         break;
       case 2:
         sineOsc1.setFreq(freq);
-        sineOsc2.setFreq(freq*2);
-        sineOsc3.setFreq(freq*8);
-        result = (int)sineOsc1.next() + (int)sineOsc2.next()/2 + (int)sineOsc3.next()/4;
+        sineOsc2.setFreq(freq<<1);
+        sineOsc3.setFreq(freq<<3);
+        result = (int)sineOsc1.next() + (int)sineOsc2.next()>>1 + (int)sineOsc3.next()>>2;
         break;
       case 3 :
         sawOsc.setFreq(freq);
@@ -152,6 +176,12 @@ int updateAudio() {
       case 4 :
         triOsc.setFreq(freq);
         result = (int)triOsc.next();
+        break;
+      case 5 :
+        sineOsc1.setFreq(freq);
+        sineOsc2.setFreq(freq<<1);
+        sineOsc3.setFreq(freq<<2);
+        result = (int)sineOsc1.next() + (int)sineOsc2.next()>>1 + (int)sineOsc3.next()>>2;
         break;
       default:
         sineOsc1.setFreq(freq);
