@@ -9,6 +9,8 @@
 Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> sineOsc1(SIN2048_DATA);
 Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> sineOsc2(SIN2048_DATA);
 Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> sineOsc3(SIN2048_DATA);
+Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> sineOsc4(SIN2048_DATA);
+Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> sineOsc5(SIN2048_DATA);
 Oscil <SAW2048_NUM_CELLS, AUDIO_RATE> sawOsc(SAW2048_DATA);
 Oscil <TRIANGLE_VALVE_2048_NUM_CELLS, AUDIO_RATE> triOsc(TRIANGLE_VALVE_2048_DATA);
 
@@ -87,8 +89,12 @@ void setup() {
 
 void updateControl() {
   // your control code
-  numberOfGamme = digitalRead(switch1Pin) + 1;
-  gamme = digitalRead(switch2Pin) + 3;
+  //numberOfGamme = digitalRead(switch1Pin) + 1;
+  //gamme = digitalRead(switch2Pin) + 3;
+
+  // debug:
+  numberOfGamme = 2;
+  gamme = 3 ;
 
   //Serial.print("numberOfGamme : "); Serial.println(numberOfGamme);
   //Serial.print("gamme : "); Serial.println(gamme);
@@ -132,8 +138,9 @@ void updateControl() {
   {
     multip=multip<<1 ;
   }
-  
-  freq = map(pulseTimeFreq, minValue, maxValue, 65 * multip, 124 * multip * numberOfGamme);
+
+  //freq = 3000 * 65 * multip / pulseTimeFreq;
+  //freq = map(pulseTimeFreq, minValue, maxValue, 65 * multip, 124 * multip * numberOfGamme);
   volume = map(pulseTimeVolume, minValue, maxValue, 0, 255);
   count++;
   count = count % 10;
@@ -143,7 +150,7 @@ void updateControl() {
 int updateAudio() {
 
   int result;
-  {
+  /*{
     if(!digitalRead(mode1Pin)) mode = 0;
     else if(!digitalRead(mode2Pin)) mode = 1;
     else if(!digitalRead(mode3Pin)) mode = 2;
@@ -151,6 +158,12 @@ int updateAudio() {
     else if(!digitalRead(mode5Pin)) mode = 4;
     else mode = 5;
   }
+  */
+  // debug:
+  mode = 5;
+  
+  //Serial.println(freq);
+  
   switch (mode)
     {
       case 0 :
@@ -159,15 +172,15 @@ int updateAudio() {
         break;
       case 1 :
         sineOsc1.setFreq(freq);
-        sineOsc2.setFreq(freq<<2);
-        sineOsc3.setFreq(freq<<4);
-        result = (int)sineOsc1.next() + (int)sineOsc2.next()>>1 + (int)sineOsc3.next()>>2;
+        sineOsc2.setFreq(freq<<1);
+        sineOsc3.setFreq(freq<<2);
+        result = (int)sineOsc1.next()/2 + 2*(int)sineOsc2.next()/7 + (int)sineOsc3.next()/7;
         break;
       case 2:
         sineOsc1.setFreq(freq);
-        sineOsc2.setFreq(freq<<1);
-        sineOsc3.setFreq(freq<<3);
-        result = (int)sineOsc1.next() + (int)sineOsc2.next()>>1 + (int)sineOsc3.next()>>2;
+        sineOsc2.setFreq(freq*3);
+        sineOsc3.setFreq(freq*5);
+        result = 5*(int)sineOsc1.next()/8 + 2*(int)sineOsc2.next()/8 + (int)sineOsc3.next()/8;
         break;
       case 3 :
         sawOsc.setFreq(freq);
@@ -178,23 +191,31 @@ int updateAudio() {
         result = (int)triOsc.next();
         break;
       case 5 :
+        /*sineOsc1.setFreq(freq);
+        sineOsc2.setFreq(freq*3);
+        sineOsc3.setFreq(freq*5);
+        sineOsc4.setFreq(freq*7);
+        sineOsc5.setFreq(freq*4);
+        result = (int)sineOsc1.next()/3 + 3*(int)sineOsc2.next()/10 + (int)sineOsc3.next()/6 + 2*(int)sineOsc4.next()/15 + (int)sineOsc5.next()/15;*/
+
         sineOsc1.setFreq(freq);
-        sineOsc2.setFreq(freq<<1);
-        sineOsc3.setFreq(freq<<2);
-        result = (int)sineOsc1.next() + (int)sineOsc2.next()>>1 + (int)sineOsc3.next()>>2;
+        sineOsc2.setFreq(freq*2);
+        sineOsc3.setFreq(freq*3);
+        //sineOsc4.setFreq(freq*6);
+        sineOsc5.setFreq(freq*7);
+        result = (int)sineOsc1.next()/5 + 2*(int)sineOsc2.next()/5 + (int)sineOsc3.next()/5 + /*4*(int)sineOsc4.next()/45*/ + (int)sineOsc5.next()/9;
         break;
       default:
         sineOsc1.setFreq(freq);
         result = (int)sineOsc1.next();
         break;
     }
-    
-    
+    //Serial.println(result);
     return (result * volume) >> 8;
-  
 }
 
-void loop() {
+void loop()
+{
   audioHook(); // fills the audio buffer
 }
 
