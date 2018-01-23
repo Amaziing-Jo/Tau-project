@@ -39,15 +39,23 @@ const int switch2Pin = 23;
 int pulseTimeFreq = 0; // variable for reading the pulse
 int pulseTimeVolume = 0; // variable for reading the pulse for volume
 
+float K  = 0;
+float D0 = 0;
+
 int lastPulseTimeFreq = 0;
 int gamme = 4;
+int lastGamme = 0;
 int numberOfGamme = 1;
 unsigned int multip = 2;
 
 int mode = 0;
 
+float fmin_ = 261.63 ;
+float fmax_ = 1046.5 ;
+
 unsigned int minValue = 9999;
 unsigned int maxValue = 0;
+unsigned int maxValueVol = 0;
 int count = 0;
 int pinLedBoot = 13;
 long timer;
@@ -58,6 +66,32 @@ int lastFreq = 262;
 
 int idx = 0;
 
+
+float computeK()
+{
+  float k = 0;
+
+  k = fmin_ * fmax_;
+
+  k = k * (maxValue - minValue);
+
+  k = k / (fmax_ - fmin_) ;
+  
+  return k ;
+}
+
+float computeD0()
+{
+  float d0 = 0;
+
+  d0 = fmin_ * maxValue;
+
+  d0 = d0 - (fmax_ * minValue) ;
+
+  d0 = d0 / (fmax_ - fmin_) ;
+  
+  return d0;
+}
 
 void setup() {
   //Serial.begin(9600);
@@ -80,8 +114,12 @@ void setup() {
   pinMode(mode5Pin, INPUT_PULLUP);
   pinMode(mode6Pin, INPUT_PULLUP);
 
-  minValue = 100;
-  maxValue = 3000;
+  minValue = 200;
+  maxValue = 2500;
+  maxValueVol = 1200;
+
+  K=computeK();
+  D0=computeD0();
 
   startMozzi(CONTROL_RATE);
   
@@ -93,8 +131,9 @@ void updateControl() {
   //gamme = digitalRead(switch2Pin) + 3;
 
   // debug:
-  numberOfGamme = 2;
-  gamme = 3 ;
+  //numberOfGamme = 2;
+  //gamme = 3 ;
+  gamme = digitalRead(switch1Pin)<<1 + digitalRead(switch2Pin) ;
 
   //Serial.print("numberOfGamme : "); Serial.println(numberOfGamme);
   //Serial.print("gamme : "); Serial.println(gamme);
@@ -120,9 +159,36 @@ void updateControl() {
       pulseTimeVolume = pulseIn(echoPinVolume, HIGH); // calculate time for signal to return
   }
 
-  if(pulseTimeVolume > maxValue)
+  if(lastGamme != gamme)
   {
-    pulseTimeVolume = 255;
+    if(gamme == 0)
+    {
+      fmin_ = 261.63; 
+      fmax_ = 1046.5;
+    } 
+    else if(gamme == 1)
+    {
+      fmin_ = 261.63;
+      fmax_ = 2093;
+    }
+    else if(gamme == 2)
+    {
+      fmin_ = 523.25;
+      fmax_ =2093;
+    }
+    else if(gamme == 3)
+    {
+      fmin_ = 523.25;
+      fmax_ = 4186.01;
+    }
+    
+    K = computeK();
+    D0 = computeD0();
+  }
+  
+  if(pulseTimeVolume > maxValueVol)
+  {
+    pulseTimeVolume = maxValueVol;
   }  
   if(pulseTimeFreq > maxValue)
   {
@@ -133,15 +199,15 @@ void updateControl() {
 
   lastPulseTimeFreq = pulseTimeFreq;
 
-  multip = 1;
-  for(int i=0; i<gamme; i++)
-  {
-    multip=multip<<1 ;
-  }
+  lastGamme = gamme;
 
-  //freq = 3000 * 65 * multip / pulseTimeFreq;
+  
+
+  //freq = 3000 * 65 * multip / (pulseTimeFreq << 3) + 10 ;
+  freq = K / (pulseTimeFreq + D0) ;
+  //Serial.println(freq);
   //freq = map(pulseTimeFreq, minValue, maxValue, 65 * multip, 124 * multip * numberOfGamme);
-  volume = map(pulseTimeVolume, minValue, maxValue, 0, 255);
+  volume = map(pulseTimeVolume, minValue, maxValueVol, 0, 255);
   count++;
   count = count % 10;
   
@@ -160,8 +226,8 @@ int updateAudio() {
   }
   */
   // debug:
-  mode = 5;
-  
+  mode = 0;
+
   //Serial.println(freq);
   
   switch (mode)
@@ -172,15 +238,15 @@ int updateAudio() {
         break;
       case 1 :
         sineOsc1.setFreq(freq);
-        sineOsc2.setFreq(freq<<1);
-        sineOsc3.setFreq(freq<<2);
-        result = (int)sineOsc1.next()/2 + 2*(int)sineOsc2.next()/7 + (int)sineOsc3.next()/7;
+        sineOsc2.setFreq(freq*2);
+        sineOsc3.setFreq(freq*4);
+        result = (int)( sineOsc1.next()/3.0 + 2.0*sineOsc2.next()/3.0 + sineOsc3.next()/3.0 );
         break;
       case 2:
         sineOsc1.setFreq(freq);
         sineOsc2.setFreq(freq*3);
         sineOsc3.setFreq(freq*5);
-        result = 5*(int)sineOsc1.next()/8 + 2*(int)sineOsc2.next()/8 + (int)sineOsc3.next()/8;
+        result = (int) ( 5.0*sineOsc1.next()/8.0 + sineOsc2.next()/4.0 + sineOsc3.next()/8.0 );
         break;
       case 3 :
         sawOsc.setFreq(freq);
@@ -201,9 +267,9 @@ int updateAudio() {
         sineOsc1.setFreq(freq);
         sineOsc2.setFreq(freq*2);
         sineOsc3.setFreq(freq*3);
-        //sineOsc4.setFreq(freq*6);
+        sineOsc4.setFreq(freq*6);
         sineOsc5.setFreq(freq*7);
-        result = (int)sineOsc1.next()/5 + 2*(int)sineOsc2.next()/5 + (int)sineOsc3.next()/5 + /*4*(int)sineOsc4.next()/45*/ + (int)sineOsc5.next()/9;
+        result = int( sineOsc1.next()/5.0 + 2*sineOsc2.next()/5.0 + sineOsc3.next()/5.0 + 4*sineOsc4.next()/45.0 + sineOsc5.next()/9.0 );
         break;
       default:
         sineOsc1.setFreq(freq);
